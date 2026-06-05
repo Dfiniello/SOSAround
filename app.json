@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "SOSAround",
+    "slug": "sosaround",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E63946"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "SOSAround usa la tua posizione per notifiche di prossimità.",
+        "NSLocationAlwaysUsageDescription": "SOSAround usa la tua posizione in background per geofencing.",
+        "NSCameraUsageDescription": "SOSAround usa la fotocamera per scansionare QR code.",
+        "NSMicrophoneUsageDescription": "SOSAround usa il microfono per registrare messaggi vocali."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E63946"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      "expo-location",
+      [
+        "expo-notifications",
+        {
+          "color": "#E63946"
+        }
+      ]
+    ],
+    "scheme": "sosaround"
+  }
+}
