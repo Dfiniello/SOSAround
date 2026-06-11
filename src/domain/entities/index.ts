@@ -67,6 +67,7 @@ export interface Segnalazione {
   longitudine: number;
   descrizioneEmergenza: string;
   raggioProssimita: number;    // km — configurato da chi perde
+  nomeBene?: string;           // denormalizzato via join smartid — visibile a tutti gli utenti
 }
 
 // ── Entity: EventoRicerca (Mobilitazione) ──────────────────

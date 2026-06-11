@@ -6,6 +6,9 @@ type Row = {
   id_segnalazione: string; id_bene: string; id_segnalatore: string;
   data_apertura: string; data_chiusura: string | null; stato: string;
   latitudine: number; longitudine: number; descrizione: string; raggio_km: number;
+  // Nome del bene salvato direttamente sulla riga (denormalizzato): così è
+  // leggibile da TUTTI gli utenti senza dipendere dai permessi sulla tabella smartid.
+  nome_bene: string | null;
 };
 
 function rowToSegnalazione(r: Row): Segnalazione {
@@ -20,6 +23,7 @@ function rowToSegnalazione(r: Row): Segnalazione {
     longitudine: r.longitudine,
     descrizioneEmergenza: r.descrizione,
     raggioProssimita: r.raggio_km,
+    nomeBene: r.nome_bene ?? undefined,
   };
 }
 
@@ -73,6 +77,7 @@ export class SupabaseSegnalazioneRepository implements ISegnalazioneRepository {
       longitudine: s.longitudine,
       descrizione: s.descrizioneEmergenza,
       raggio_km: s.raggioProssimita,
+      nome_bene: s.nomeBene ?? null,
     });
     if (error) throw new Error(error.message);
   }

@@ -36,6 +36,9 @@ const segnalazioneSlice = createSlice({
     aggiungi(state, action: PayloadAction<Segnalazione>) {
       state.attive.push(action.payload);
     },
+    rimuovi(state, action: PayloadAction<string>) {
+      state.attive = state.attive.filter(s => s.idSegnalazione !== action.payload);
+    },
     seleziona(state, action: PayloadAction<Segnalazione | null>) {
       state.selezionata = action.payload;
     },
@@ -60,6 +63,7 @@ export const {
   caricaSuccess,
   caricaFailure,
   aggiungi,
+  rimuovi,
   seleziona,
   aggiornaStato,
   setAvviso,

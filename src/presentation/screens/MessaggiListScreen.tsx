@@ -44,8 +44,10 @@ export const MessaggiListScreen: React.FC = () => {
   const items = segnalazioni.map(s => {
     const msgs = conversazioni[s.idSegnalazione] ?? [];
     const ultimo = msgs[msgs.length - 1];
-    const bene = smartIds.find(b => b.idBene === s.idBene);
-    const nome = bene?.nome ?? 'Oggetto smarrito';
+    // nomeBene è salvato sulla segnalazione → visibile a tutti, non solo al proprietario
+    const nome = s.nomeBene
+      ?? smartIds.find(b => b.idBene === s.idBene)?.nome
+      ?? 'Oggetto smarrito';
     return {
       idSegnalazione: s.idSegnalazione,
       nome,

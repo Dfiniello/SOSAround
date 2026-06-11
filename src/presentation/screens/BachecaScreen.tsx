@@ -12,7 +12,6 @@ import { AllertaController } from '../../infrastructure/controllers/AllertaContr
 import { StatoSegnalazione } from '../../domain/entities';
 import type { Segnalazione } from '../../domain/entities';
 import { supabase } from '../../infrastructure/supabase/supabaseClient';
-import { aggiungi } from '../../infrastructure/store/slices/segnalazioneSlice';
 import { C } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -29,11 +28,13 @@ function formatDesc(desc: string): string {
 function BachecaCard({
   segnalazione,
   nomeBene,
+  isProprietario,
   onContatta,
   onRitrovato,
 }: {
   segnalazione: Segnalazione;
   nomeBene: string;
+  isProprietario: boolean;
   onContatta: () => void;
   onRitrovato: () => void;
 }) {
@@ -85,18 +86,21 @@ function BachecaCard({
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.btn, styles.btnRitrovato, !isAttivo && styles.btnDisabled]}
-            onPress={onRitrovato}
-            disabled={!isAttivo}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="checkmark-circle-outline" size={14}
-              color={isAttivo ? C.primary : C.text3} />
-            <Text style={[styles.btnText, styles.btnRitrovatoText, !isAttivo && styles.btnDisabledText]}>
-              Ritrovato
-            </Text>
-          </TouchableOpacity>
+          {/* "Ritrovato" è riservato al proprietario della segnalazione */}
+          {isProprietario && (
+            <TouchableOpacity
+              style={[styles.btn, styles.btnRitrovato, !isAttivo && styles.btnDisabled]}
+              onPress={onRitrovato}
+              disabled={!isAttivo}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle-outline" size={14}
+                color={isAttivo ? C.primary : C.text3} />
+              <Text style={[styles.btnText, styles.btnRitrovatoText, !isAttivo && styles.btnDisabledText]}>
+                Ritrovato
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
@@ -108,6 +112,7 @@ export const BachecaScreen: React.FC = () => {
   const dispatch     = useAppDispatch();
   const segnalazioni = useAppSelector(s => s.segnalazione.attive);
   const smartIds     = useAppSelector(s => s.smartId.items);
+  const utente       = useAppSelector(s => s.auth.utente);
   const isLoading    = useAppSelector(s => s.segnalazione.isLoading);
   const controller   = new AllertaController(dispatch);
 
@@ -121,8 +126,9 @@ export const BachecaScreen: React.FC = () => {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'segnalazione' },
-        (payload) => {
-          dispatch(aggiungi(payload.new as Segnalazione));
+        () => {
+          // Ricarica per ottenere i dati mappati + il nome del bene (join)
+          controller.caricaSegnalazioniAttive();
         }
       )
       .on(
@@ -138,8 +144,10 @@ export const BachecaScreen: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const getNomeBene = (idBene: string) =>
-    smartIds.find(b => b.idBene === idBene)?.nome ?? 'Oggetto smarrito';
+  const getNomeBene = (s: Segnalazione) =>
+    s.nomeBene
+    ?? smartIds.find(b => b.idBene === s.idBene)?.nome
+    ?? 'Oggetto smarrito';
 
   const handleRitrovato = (idSegnalazione: string, nome: string) => {
     Alert.alert(
@@ -158,11 +166,12 @@ export const BachecaScreen: React.FC = () => {
         data={segnalazioni}
         keyExtractor={s => s.idSegnalazione}
         renderItem={({ item }) => {
-          const nome = getNomeBene(item.idBene);
+          const nome = getNomeBene(item);
           return (
             <BachecaCard
               segnalazione={item}
               nomeBene={nome}
+              isProprietario={item.idSegnalatore === utente?.idUtente}
               onContatta={() => navigation.navigate('Chat', { idSegnalazione: item.idSegnalazione })}
               onRitrovato={() => handleRitrovato(item.idSegnalazione, nome)}
             />

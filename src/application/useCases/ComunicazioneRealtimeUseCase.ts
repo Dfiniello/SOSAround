@@ -36,7 +36,20 @@ export class ComunicazioneRealtimeUseCase {
     if (!s) throw new Error('Segnalazione non trovata.');
     if (s.stato !== StatoSegnalazione.ATTIVO) throw new SegnalazioneChiusaException();
 
-    const idDestinatario = s.idSegnalatore;
+    // Determina il destinatario corretto:
+    // - se a scrivere è il ritrovatore → destinatario è il segnalatore (proprietario)
+    // - se a scrivere è il segnalatore → destinatario è il ritrovatore, ricavato
+    //   dal primo messaggio della conversazione inviato dall'altra parte.
+    // Senza questo, le risposte del proprietario avrebbero destinatario = se stesso
+    // e la RLS di Supabase non le consegnerebbe in realtime al ritrovatore.
+    let idDestinatario: string;
+    if (input.idMittente === s.idSegnalatore) {
+      const msgs = await this.archivioMessaggi.findBySegnalazione(input.idSegnalazione);
+      const altro = msgs.find(m => m.idMittente !== s.idSegnalatore);
+      idDestinatario = altro?.idMittente ?? s.idSegnalatore;
+    } else {
+      idDestinatario = s.idSegnalatore;
+    }
 
     if (input.mediaUrl) {
       const ok = await this.verificaUpload(input.mediaUrl);

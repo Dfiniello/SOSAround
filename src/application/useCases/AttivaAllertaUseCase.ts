@@ -53,6 +53,7 @@ export class AttivaAllertaUseCase {
       longitudine: input.longitudine,
       descrizioneEmergenza: input.descrizioneEmergenza,
       raggioProssimita: input.raggioProssimita,
+      nomeBene: bene.nome,
     };
 
     await this.archivioSegnalazioni.save(segnalazione);

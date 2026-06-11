@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS segnalazione (
   latitudine        REAL NOT NULL,
   longitudine       REAL NOT NULL,
   descrizione       TEXT NOT NULL DEFAULT '',
-  raggio_km         REAL NOT NULL DEFAULT 10
+  raggio_km         REAL NOT NULL DEFAULT 10,
+  nome_bene         TEXT  -- denormalizzato: nome del bene visibile a tutti gli utenti
 );
 
 -- ── EVENTO RICERCA (Mobilitazione fisica) ─────────────────────

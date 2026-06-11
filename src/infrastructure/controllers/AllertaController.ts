@@ -1,13 +1,12 @@
 import type { AppDispatch } from '../store';
 import {
-  aggiungi, caricaStart, caricaFailure, setAvviso, caricaSuccess, aggiornaStato, resetLoading,
+  aggiungi, caricaStart, caricaFailure, setAvviso, caricaSuccess, rimuovi, resetLoading,
 } from '../store/slices/segnalazioneSlice';
 import { AttivaAllertaUseCase, AttivaAllertaInput } from '../../application/useCases/AttivaAllertaUseCase';
 import { SupabaseSmartIdRepository } from '../repositories/supabase/SupabaseSmartIdRepository';
 import { SupabaseSegnalazioneRepository } from '../repositories/supabase/SupabaseSegnalazioneRepository';
 import { SupabaseUtenteRepository } from '../repositories/supabase/SupabaseUtenteRepository';
 import { ExpoGatewayNotifiche } from '../services/ExpoGatewayNotifiche';
-import { StatoSegnalazione } from '../../domain/entities';
 
 const smartIdRepo      = new SupabaseSmartIdRepository();
 const segnalazioneRepo = new SupabaseSegnalazioneRepository();
@@ -46,7 +45,8 @@ export class AllertaController {
   async chiudiSegnalazione(idSegnalazione: string): Promise<void> {
     try {
       await segnalazioneRepo.chiudi(idSegnalazione);
-      this.dispatch(aggiornaStato({ id: idSegnalazione, stato: StatoSegnalazione.RITROVATO }));
+      // L'oggetto ritrovato esce dalla bacheca delle segnalazioni attive
+      this.dispatch(rimuovi(idSegnalazione));
     } catch (err) {
       this.dispatch(caricaFailure((err as Error).message));
     }
