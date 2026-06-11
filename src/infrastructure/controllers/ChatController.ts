@@ -3,16 +3,16 @@ import {
   aggiungiMessaggio, caricaMessaggiSuccess, setLoading, setError,
 } from '../store/slices/messaggioSlice';
 import { ComunicazioneRealtimeUseCase, InviaMessaggioInput } from '../../application/useCases/ComunicazioneRealtimeUseCase';
-import { SQLiteSegnalazioneRepository } from '../repositories/SQLiteSegnalazioneRepository';
-import { SQLiteMessaggioRepository } from '../repositories/SQLiteMessaggioRepository';
-import { SQLiteUtenteRepository } from '../repositories/SQLiteUtenteRepository';
+import { SupabaseSegnalazioneRepository } from '../repositories/supabase/SupabaseSegnalazioneRepository';
+import { SupabaseMessaggioRepository } from '../repositories/supabase/SupabaseMessaggioRepository';
+import { SupabaseUtenteRepository } from '../repositories/supabase/SupabaseUtenteRepository';
 import { ExpoGatewayNotifiche } from '../services/ExpoGatewayNotifiche';
 import type { Messaggio } from '../../domain/entities';
 
-const segnalazioneRepo = new SQLiteSegnalazioneRepository();
-const messaggioRepo = new SQLiteMessaggioRepository();
-const utenteRepo = new SQLiteUtenteRepository();
-const gateway = new ExpoGatewayNotifiche();
+const segnalazioneRepo = new SupabaseSegnalazioneRepository();
+const messaggioRepo    = new SupabaseMessaggioRepository();
+const utenteRepo       = new SupabaseUtenteRepository();
+const gateway          = new ExpoGatewayNotifiche();
 
 const useCase = new ComunicazioneRealtimeUseCase(
   segnalazioneRepo, messaggioRepo, utenteRepo, gateway

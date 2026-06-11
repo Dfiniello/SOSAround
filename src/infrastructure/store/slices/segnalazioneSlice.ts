@@ -49,6 +49,9 @@ const segnalazioneSlice = createSlice({
     setAvviso(state, action: PayloadAction<string | null>) {
       state.avviso = action.payload;
     },
+    resetLoading(state) {
+      state.isLoading = false;
+    },
   },
 });
 
@@ -60,6 +63,7 @@ export const {
   seleziona,
   aggiornaStato,
   setAvviso,
+  resetLoading,
 } = segnalazioneSlice.actions;
 
 export default segnalazioneSlice.reducer;

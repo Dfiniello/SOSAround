@@ -6,13 +6,8 @@
 // ── Enums ──────────────────────────────────────────────────
 
 export enum TipoBene {
-  CANE = 'CANE',
-  GATTO = 'GATTO',
   ANIMALE = 'ANIMALE',
-  BICI = 'BICI',
-  ZAINO = 'ZAINO',
-  PORTAFOGLIO = 'PORTAFOGLIO',
-  CHIAVI = 'CHIAVI',
+  OGGETTO = 'OGGETTO',
   ALTRO = 'ALTRO',
 }
 

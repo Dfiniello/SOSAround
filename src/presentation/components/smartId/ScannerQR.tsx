@@ -14,7 +14,14 @@ export const ScannerQR: React.FC<Props> = ({ onQrScansionato, onAnnulla }) => {
 
   useEffect(() => {
     if (!permission?.granted) {
-      requestPermission();
+      requestPermission({
+        rationale: {
+          title: 'Permesso fotocamera',
+          message: 'SOSAround usa la fotocamera per scansionare i QR code dei volantini.',
+          buttonPositive: 'Concedi',
+          buttonNegative: 'Annulla',
+        },
+      } as Parameters<typeof requestPermission>[0]);
     }
   }, []);
 

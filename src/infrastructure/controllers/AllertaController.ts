@@ -1,18 +1,18 @@
 import type { AppDispatch } from '../store';
 import {
-  aggiungi, caricaStart, caricaFailure, setAvviso, caricaSuccess, aggiornaStato,
+  aggiungi, caricaStart, caricaFailure, setAvviso, caricaSuccess, aggiornaStato, resetLoading,
 } from '../store/slices/segnalazioneSlice';
 import { AttivaAllertaUseCase, AttivaAllertaInput } from '../../application/useCases/AttivaAllertaUseCase';
-import { SQLiteSmartIdRepository } from '../repositories/SQLiteSmartIdRepository';
-import { SQLiteSegnalazioneRepository } from '../repositories/SQLiteSegnalazioneRepository';
-import { SQLiteUtenteRepository } from '../repositories/SQLiteUtenteRepository';
+import { SupabaseSmartIdRepository } from '../repositories/supabase/SupabaseSmartIdRepository';
+import { SupabaseSegnalazioneRepository } from '../repositories/supabase/SupabaseSegnalazioneRepository';
+import { SupabaseUtenteRepository } from '../repositories/supabase/SupabaseUtenteRepository';
 import { ExpoGatewayNotifiche } from '../services/ExpoGatewayNotifiche';
 import { StatoSegnalazione } from '../../domain/entities';
 
-const smartIdRepo = new SQLiteSmartIdRepository();
-const segnalazioneRepo = new SQLiteSegnalazioneRepository();
-const utenteRepo = new SQLiteUtenteRepository();
-const gateway = new ExpoGatewayNotifiche();
+const smartIdRepo      = new SupabaseSmartIdRepository();
+const segnalazioneRepo = new SupabaseSegnalazioneRepository();
+const utenteRepo       = new SupabaseUtenteRepository();
+const gateway          = new ExpoGatewayNotifiche();
 
 const useCase = new AttivaAllertaUseCase(smartIdRepo, segnalazioneRepo, utenteRepo, gateway);
 
@@ -25,6 +25,7 @@ export class AllertaController {
       const output = await useCase.esegui(input);
       this.dispatch(aggiungi(output.segnalazione));
       if (output.avviso) this.dispatch(setAvviso(output.avviso));
+      this.dispatch(resetLoading());
       return output.kitUrl;
     } catch (err) {
       this.dispatch(caricaFailure((err as Error).message));

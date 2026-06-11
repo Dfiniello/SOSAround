@@ -11,6 +11,8 @@ import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks
 import { AllertaController } from '../../infrastructure/controllers/AllertaController';
 import { StatoSegnalazione } from '../../domain/entities';
 import type { Segnalazione } from '../../domain/entities';
+import { supabase } from '../../infrastructure/supabase/supabaseClient';
+import { aggiungi } from '../../infrastructure/store/slices/segnalazioneSlice';
 import { C } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -109,7 +111,32 @@ export const BachecaScreen: React.FC = () => {
   const isLoading    = useAppSelector(s => s.segnalazione.isLoading);
   const controller   = new AllertaController(dispatch);
 
-  useEffect(() => { controller.caricaSegnalazioniAttive(); }, []);
+  useEffect(() => {
+    // Fetch iniziale
+    controller.caricaSegnalazioniAttive();
+
+    // Supabase Realtime — nuove segnalazioni arrivano senza refresh manuale
+    const channel = supabase
+      .channel('bacheca:segnalazioni:live')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'segnalazione' },
+        (payload) => {
+          dispatch(aggiungi(payload.new as Segnalazione));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'segnalazione' },
+        () => {
+          // Ricarica per aggiornare stati (es. RITROVATO)
+          controller.caricaSegnalazioniAttive();
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const getNomeBene = (idBene: string) =>
     smartIds.find(b => b.idBene === idBene)?.nome ?? 'Oggetto smarrito';

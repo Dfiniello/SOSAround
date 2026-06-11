@@ -86,7 +86,8 @@ export const AttivaAllertaScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.scroll}>

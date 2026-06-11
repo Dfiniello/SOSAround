@@ -40,6 +40,9 @@ const smartIdSlice = createSlice({
     rimuovi(state, action: PayloadAction<string>) {
       state.items = state.items.filter(b => b.idBene !== action.payload);
     },
+    resetLoading(state) {
+      state.isLoading = false;
+    },
   },
 });
 
@@ -50,6 +53,7 @@ export const {
   aggiungi,
   seleziona,
   rimuovi,
+  resetLoading,
 } = smartIdSlice.actions;
 
 export default smartIdSlice.reducer;

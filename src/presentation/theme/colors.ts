@@ -31,12 +31,7 @@ export const C = {
   shadow:  '#000000',
 
   // Vault thumbnails (by tipo)
-  thumbCane:      '#FEF3C7',
-  thumbGatto:     '#FCE7F3',
   thumbAnimale:   '#D1FAE5',
-  thumbBici:      '#FED7AA',
   thumbZaino:     '#DBEAFE',
-  thumbPorta:     '#EDE9FE',
-  thumbChiavi:    '#BBF7D0',
   thumbAltro:     '#F3F4F6',
 };

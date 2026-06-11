@@ -1,11 +1,6 @@
 import type { IUtenteRepository } from '../../domain/repositories/IUtenteRepository';
-import { Utente, DuplicatoException, PasswordDeboleException } from '../../domain/entities';
+import { Utente, DuplicatoException } from '../../domain/entities';
 import { generateId } from '../../utils/uuid';
-
-function validaPassword(password: string): void {
-  const regex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@#$%^&+=!]).{8,}$/;
-  if (!regex.test(password)) throw new PasswordDeboleException();
-}
 
 export interface RegistraUtenteInput {
   nome: string;
@@ -18,8 +13,6 @@ export class RegistraUtenteUseCase {
   constructor(private readonly utenteRepository: IUtenteRepository) {}
 
   async esegui(input: RegistraUtenteInput): Promise<Utente> {
-    validaPassword(input.password);
-
     const esisteNome = await this.utenteRepository.findByNome(input.nome);
     if (esisteNome) throw new DuplicatoException(`Il nome utente "${input.nome}" è già in uso.`);
 

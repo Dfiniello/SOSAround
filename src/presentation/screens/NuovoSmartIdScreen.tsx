@@ -13,9 +13,9 @@ import { TipoBene } from '../../domain/entities';
 
 const TIPI = Object.values(TipoBene);
 const TIPO_LABEL: Record<TipoBene, string> = {
-  CANE: '🐕 Cane', GATTO: '🐈 Gatto', ANIMALE: '🦊 Animale',
-  BICI: '🚲 Bici', ZAINO: '🎒 Zaino', PORTAFOGLIO: '👜 Portafoglio',
-  CHIAVI: '🔑 Chiavi', ALTRO: '📦 Altro',
+  ANIMALE: 'Animale',
+  OGGETTO: 'Oggetto',
+  ALTRO: 'Altro',
 };
 
 export const NuovoSmartIdScreen: React.FC = () => {
@@ -25,7 +25,7 @@ export const NuovoSmartIdScreen: React.FC = () => {
   const isLoading = useAppSelector(s => s.smartId.isLoading);
   const errorRedux = useAppSelector(s => s.smartId.error);
 
-  const [tipo, setTipo] = useState<TipoBene>(TipoBene.CANE);
+  const [tipo, setTipo] = useState<TipoBene>(TipoBene.ANIMALE);
   const [nome, setNome] = useState('');
   const [codice, setCodice] = useState('');
   const [fotoUrl, setFotoUrl] = useState('');
@@ -54,7 +54,8 @@ export const NuovoSmartIdScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">

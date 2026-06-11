@@ -8,7 +8,9 @@ import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks';
 import { ChatController } from '../../infrastructure/controllers/ChatController';
+import { aggiungiMessaggio } from '../../infrastructure/store/slices/messaggioSlice';
 import { SegnalazioneChiusaException } from '../../domain/entities';
+import { supabase } from '../../infrastructure/supabase/supabaseClient';
 import { C } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { Messaggio } from '../../domain/entities';
@@ -26,14 +28,20 @@ export const ChatScreen: React.FC = () => {
 
   const [testo, setTesto]           = useState('');
   const [invioInCorso, setInvioInCorso] = useState(false);
-  const flatRef  = useRef<FlatList>(null);
+  const flatRef    = useRef<FlatList>(null);
+  // useRef per evitare stale closure nell'effetto Realtime:
+  // l'effetto ha deps=[] ma deve sempre leggere l'utente aggiornato
+  const utenteRef  = useRef(utente);
+  useEffect(() => { utenteRef.current = utente; }, [utente]);
   const controller = new ChatController(dispatch);
 
   useEffect(() => {
+    const idSegnalazione = route.params.idSegnalazione;
+
     (async () => {
       try {
-        await controller.apriChat(route.params.idSegnalazione);
-        await controller.caricaMessaggi(route.params.idSegnalazione);
+        await controller.apriChat(idSegnalazione);
+        await controller.caricaMessaggi(idSegnalazione);
       } catch (e) {
         if (e instanceof SegnalazioneChiusaException) {
           Alert.alert('Emergenza chiusa', e.message, [
@@ -42,6 +50,49 @@ export const ChatScreen: React.FC = () => {
         }
       }
     })();
+
+    // Supabase Realtime — nuovi messaggi arrivano in push senza polling
+    const channel = supabase
+      .channel(`chat:${idSegnalazione}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messaggio',
+          filter: `id_segnalazione=eq.${idSegnalazione}`,
+        },
+        (payload) => {
+          const r = payload.new as {
+            id_messaggio: string; id_segnalazione: string;
+            id_mittente: string; id_destinatario: string;
+            testo: string; timestamp: string;
+            media_url: string | null; coord_lat: number | null; coord_lng: number | null;
+          };
+          const nuovoMsg: Messaggio = {
+            idMessaggio: r.id_messaggio,
+            idSegnalazione: r.id_segnalazione,
+            idMittente: r.id_mittente,
+            idDestinatario: r.id_destinatario,
+            testo: r.testo,
+            timestamp: new Date(r.timestamp),
+            mediaUrl: r.media_url ?? undefined,
+            coordinateGps:
+              r.coord_lat != null && r.coord_lng != null
+                ? { lat: r.coord_lat, lng: r.coord_lng }
+                : undefined,
+          };
+            // Evita duplicati: il mittente ha già aggiunto il msg in handleInvia.
+          // Usa utenteRef (non utente) per leggere il valore aggiornato
+          // anche se l'effetto è montato con deps=[].
+          if (nuovoMsg.idMittente !== utenteRef.current?.idUtente) {
+            dispatch(aggiungiMessaggio(nuovoMsg));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
@@ -89,23 +140,24 @@ export const ChatScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <FlatList
-        ref={flatRef}
-        data={messaggi}
-        keyExtractor={m => m.idMessaggio}
-        renderItem={renderMessaggio}
-        contentContainerStyle={styles.lista}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            Nessun messaggio ancora.{'\n'}Invia la posizione o una descrizione dell'avvistamento!
-          </Text>
-        }
-      />
-
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={88}
+        style={styles.flex}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 24}
       >
+        <FlatList
+          ref={flatRef}
+          data={messaggi}
+          keyExtractor={m => m.idMessaggio}
+          renderItem={renderMessaggio}
+          contentContainerStyle={styles.lista}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              Nessun messaggio ancora.{'\n'}Invia la posizione o una descrizione dell'avvistamento!
+            </Text>
+          }
+        />
+
         <View style={styles.inputBar}>
           <TextInput
             style={styles.input}
@@ -131,6 +183,7 @@ export const ChatScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   safe:  { flex: 1, backgroundColor: C.bg },
+  flex:  { flex: 1 },
   lista: { padding: 16, paddingBottom: 8 },
 
   bubble: {

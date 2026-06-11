@@ -10,7 +10,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks';
 import { SmartIdController } from '../../infrastructure/controllers/SmartIdController';
 import { AuthService } from '../../infrastructure/services/AuthService';
-import { logout } from '../../infrastructure/store/slices/authSlice';
 import { C } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { SmartId } from '../../domain/entities';
@@ -21,25 +20,15 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 const authService = new AuthService();
 
 const THUMB_COLOR: Record<TipoBene, string> = {
-  [TipoBene.CANE]:       C.thumbCane,
-  [TipoBene.GATTO]:      C.thumbGatto,
-  [TipoBene.ANIMALE]:    C.thumbAnimale,
-  [TipoBene.BICI]:       C.thumbBici,
-  [TipoBene.ZAINO]:      C.thumbZaino,
-  [TipoBene.PORTAFOGLIO]:C.thumbPorta,
-  [TipoBene.CHIAVI]:     C.thumbChiavi,
-  [TipoBene.ALTRO]:      C.thumbAltro,
+  [TipoBene.ANIMALE]: C.thumbAnimale,
+  [TipoBene.OGGETTO]: C.thumbZaino,
+  [TipoBene.ALTRO]:   C.thumbAltro,
 };
 
 const TIPO_EMOJI: Record<TipoBene, string> = {
-  [TipoBene.CANE]:       '🐕',
-  [TipoBene.GATTO]:      '🐈',
-  [TipoBene.ANIMALE]:    '🦊',
-  [TipoBene.BICI]:       '🚲',
-  [TipoBene.ZAINO]:      '🎒',
-  [TipoBene.PORTAFOGLIO]:'👛',
-  [TipoBene.CHIAVI]:     '🔑',
-  [TipoBene.ALTRO]:      '📦',
+  [TipoBene.ANIMALE]: '🐾',
+  [TipoBene.OGGETTO]: '📦',
+  [TipoBene.ALTRO]:   '📌',
 };
 
 function VaultItem({ item, onPress }: { item: SmartId; onPress: () => void }) {
@@ -88,17 +77,18 @@ export const VaultScreen: React.FC = () => {
     if (utente) controller.caricaPerProprietario(utente.idUtente);
   }, [utente?.idUtente]);
 
-  const handleLogout = () => {
-    Alert.alert('Esci', 'Vuoi disconnetterti?', [
-      { text: 'Annulla', style: 'cancel' },
-      {
-        text: 'Esci', style: 'destructive',
-        onPress: async () => {
-          await authService.cancellaSessione();
-          dispatch(logout());
+  const handleProfilo = () => {
+    Alert.alert(
+      utente?.nome ?? 'Profilo',
+      `Email: ${utente?.email ?? '—'}\n\nCosa vuoi fare?`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Disconnetti', style: 'destructive',
+          onPress: () => authService.logout(),
         },
-      },
-    ]);
+      ]
+    );
   };
 
   return (
@@ -106,7 +96,7 @@ export const VaultScreen: React.FC = () => {
       {/* Header personalizzato con logout */}
       <View style={styles.header}>
         <Text style={styles.titolo}>Smart ID Vault</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+        <TouchableOpacity onPress={handleProfilo} style={styles.logoutBtn}>
           <Ionicons name="person-circle-outline" size={30} color={C.primary} />
         </TouchableOpacity>
       </View>

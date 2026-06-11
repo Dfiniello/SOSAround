@@ -1,40 +1,55 @@
-// RQ-25: Cifratura password + sessione sicura con expo-secure-store
-import * as SecureStore from 'expo-secure-store';
-import * as ExpoCrypto from 'expo-crypto';
+import { supabase } from '../supabase/supabaseClient';
 import { PasswordDeboleException } from '../../domain/entities';
 
-const TOKEN_KEY = 'sosaround_auth_token';
-const USER_KEY  = 'sosaround_user_id';
-
 export class AuthService {
-  // expo-crypto è disponibile su Hermes (a differenza di crypto.subtle)
-  async hashPassword(password: string): Promise<string> {
-    return ExpoCrypto.digestStringAsync(
-      ExpoCrypto.CryptoDigestAlgorithm.SHA256,
-      password
-    );
+  validaEmail(email: string): void {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!regex.test(email.trim())) throw new Error('Inserisci un indirizzo email valido.');
   }
 
   validaPassword(password: string): void {
-    // RQ-30: min 8 char, 1 maiuscola, 1 numero, 1 carattere speciale
-    const regex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@#$%^&+=!]).{8,}$/;
+    const regex = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
     if (!regex.test(password)) throw new PasswordDeboleException();
   }
 
-  async salvaSessione(idUtente: string, token: string): Promise<void> {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
-    await SecureStore.setItemAsync(USER_KEY, idUtente);
+  async registra(nome: string, email: string, password: string): Promise<string> {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      if (error.message.includes('already registered'))
+        throw new Error("L'email è già registrata.");
+      throw new Error(error.message);
+    }
+    const userId = data.user!.id;
+
+    // Controlla unicità nome utente
+    const { data: existing } = await supabase
+      .from('profilo')
+      .select('id')
+      .eq('nome', nome)
+      .maybeSingle();
+    if (existing) throw new Error(`Il nome utente "${nome}" è già in uso.`);
+
+    const { error: profileError } = await supabase
+      .from('profilo')
+      .insert({ id: userId, nome, punteggio: 0 });
+    if (profileError) throw new Error(profileError.message);
+
+    return userId;
   }
 
-  async recuperaSessione(): Promise<{ idUtente: string; token: string } | null> {
-    const token    = await SecureStore.getItemAsync(TOKEN_KEY);
-    const idUtente = await SecureStore.getItemAsync(USER_KEY);
-    if (!token || !idUtente) return null;
-    return { idUtente, token };
+  async login(email: string, password: string): Promise<string> {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error('Email o password errata.');
+    return data.user.id;
   }
 
-  async cancellaSessione(): Promise<void> {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_KEY);
+  async logout(): Promise<void> {
+    await supabase.auth.signOut();
+  }
+
+  async getSessioneAttiva(): Promise<{ idUtente: string } | null> {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return null;
+    return { idUtente: data.session.user.id };
   }
 }

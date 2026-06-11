@@ -1,14 +1,15 @@
 import React from 'react';
 import {
-  View, Text, Image, StyleSheet, ScrollView, Share,
+  View, Text, Image, StyleSheet, ScrollView, Share, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
-import { useAppSelector } from '../../infrastructure/store/hooks';
+import { useAppSelector, useAppDispatch } from '../../infrastructure/store/hooks';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
+import { SmartIdController } from '../../infrastructure/controllers/SmartIdController';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
 type RouteT = RouteProp<RootStackParamList, 'DettaglioSmartId'>;
@@ -17,9 +18,11 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export const DettaglioSmartIdScreen: React.FC = () => {
   const route = useRoute<RouteT>();
   const navigation = useNavigation<Nav>();
+  const dispatch = useAppDispatch();
   const bene = useAppSelector(s =>
     s.smartId.items.find(b => b.idBene === route.params.idBene)
   );
+  const controller = new SmartIdController(dispatch);
 
   if (!bene) {
     return (
@@ -28,6 +31,25 @@ export const DettaglioSmartIdScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
+
+  const handleElimina = () => {
+    const idBene = bene!.idBene;
+    const nomeBene = bene!.nome;
+    Alert.alert(
+      'Elimina Smart ID',
+      `Sei sicuro di voler eliminare "${nomeBene}"? L'operazione non è reversibile.`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Elimina', style: 'destructive',
+          onPress: async () => {
+            await controller.elimina(idBene);
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
 
   const handleCondividiQr = async () => {
     await Share.share({
@@ -75,17 +97,25 @@ export const DettaglioSmartIdScreen: React.FC = () => {
 
       {/* RQ-24: CTA nella safe zone inferiore */}
       <View style={styles.footer}>
+        <View style={styles.footerTop}>
+          <Button
+            label="Attiva Allerta"
+            onPress={() => navigation.navigate('AttivaAllerta', { idBene: bene.idBene })}
+            variante="pericolo"
+            style={styles.btnAllerta}
+          />
+          <Button
+            label="Condividi QR"
+            onPress={handleCondividiQr}
+            variante="secondario"
+            style={styles.btnQr}
+          />
+        </View>
         <Button
-          label="🚨 Attiva Allerta"
-          onPress={() => navigation.navigate('AttivaAllerta', { idBene: bene.idBene })}
+          label="Elimina Smart ID"
+          onPress={handleElimina}
           variante="pericolo"
-          style={styles.btnAllerta}
-        />
-        <Button
-          label="📤 Condividi QR"
-          onPress={handleCondividiQr}
-          variante="secondario"
-          style={styles.btnQr}
+          style={styles.btnElimina}
         />
       </View>
     </SafeAreaView>
@@ -94,7 +124,7 @@ export const DettaglioSmartIdScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f8f8fa' },
-  scroll: { paddingBottom: 120 },
+  scroll: { paddingBottom: 180 },
   foto: {
     width: '100%', height: 280, backgroundColor: '#e0e0e0',
   },
@@ -111,8 +141,10 @@ const styles = StyleSheet.create({
     padding: 20, paddingBottom: 36,
     backgroundColor: '#fff',
     borderTopWidth: 1, borderTopColor: '#f0f0f0',
-    flexDirection: 'row', gap: 12,
+    gap: 10,
   },
+  footerTop: { flexDirection: 'row', gap: 12 },
   btnAllerta: { flex: 1 },
   btnQr: { flex: 1 },
+  btnElimina: { opacity: 0.75 },
 });

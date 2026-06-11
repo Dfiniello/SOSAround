@@ -28,9 +28,9 @@ export const Button: React.FC<Props> = ({
   const bgColor =
     variante === 'pericolo' ? '#E63946'
     : variante === 'secondario' ? '#fff'
-    : '#E63946';
-  const textColor = variante === 'secondario' ? '#E63946' : '#fff';
-  const borderColor = variante === 'secondario' ? '#E63946' : 'transparent';
+    : '#2563EB';
+  const textColor = variante === 'secondario' ? '#2563EB' : '#fff';
+  const borderColor = variante === 'secondario' ? '#2563EB' : 'transparent';
 
   return (
     <TouchableOpacity

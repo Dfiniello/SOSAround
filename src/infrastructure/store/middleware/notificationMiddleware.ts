@@ -4,6 +4,7 @@
 import type { Middleware } from '@reduxjs/toolkit';
 import { aggiungi as aggiungiSegnalazione } from '../slices/segnalazioneSlice';
 import { notificationQueue } from '../../services/NotificationQueueService';
+import { generateId } from '../../../utils/uuid';
 
 export const notificationMiddleware: Middleware = () => next => action => {
   const result = next(action);
@@ -11,7 +12,7 @@ export const notificationMiddleware: Middleware = () => next => action => {
   // Pubblica un job nella coda ogni volta che una nuova segnalazione viene creata
   if (aggiungiSegnalazione.match(action)) {
     notificationQueue.enqueue({
-      id: crypto.randomUUID(),
+      id: generateId(),
       idSegnalazione: action.payload.idSegnalazione,
       latitudine: action.payload.latitudine,
       longitudine: action.payload.longitudine,

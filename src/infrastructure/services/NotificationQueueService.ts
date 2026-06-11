@@ -2,6 +2,8 @@
 // Disaccoppia il ritmo bursty della UI dal ritmo controllato del gateway notifiche.
 // Supporta fino a 50 notifiche simultanee per area (RQ-26).
 
+import type { IGatewayNotifiche } from '../../domain/repositories/IGatewayNotifiche';
+
 export interface NotificationJob {
   id: string;
   idSegnalazione: string;
@@ -17,6 +19,18 @@ class PriorityQueue {
   private isProcessing = false;
   private readonly MAX_CONCURRENT = 50;  // RQ-26
   private readonly WORKER_INTERVAL_MS = 200;
+
+  // Iniettati dopo l'init (evita circular dependency)
+  private gateway: IGatewayNotifiche | null = null;
+  private tokenResolver: ((lat: number, lng: number, raggioKm: number) => Promise<string[]>) | null = null;
+
+  configure(
+    gateway: IGatewayNotifiche,
+    tokenResolver: (lat: number, lng: number, raggioKm: number) => Promise<string[]>
+  ): void {
+    this.gateway = gateway;
+    this.tokenResolver = tokenResolver;
+  }
 
   enqueue(job: NotificationJob): void {
     this.queue.push(job);
@@ -47,9 +61,23 @@ class PriorityQueue {
   }
 
   private async processJob(job: NotificationJob): Promise<void> {
-    // Il worker chiama il gateway a ritmo controllato.
-    // L'implementazione reale passa per il GatewayNotifiche (infrastruttura).
-    console.log(`[Queue] Processing job ${job.id} for segnalazione ${job.idSegnalazione}`);
+    if (!this.gateway || !this.tokenResolver) {
+      console.warn(`[Queue] Gateway o tokenResolver non configurati — job ${job.id} scartato.`);
+      return;
+    }
+    try {
+      const tokens = await this.tokenResolver(job.latitudine, job.longitudine, job.raggioKm);
+      if (tokens.length > 0) {
+        await this.gateway.inviaNotifiche(
+          tokens,
+          '🚨 SOS nelle vicinanze',
+          `Segnalazione attiva nella tua area`,
+          { idSegnalazione: job.idSegnalazione }
+        );
+      }
+    } catch (e) {
+      console.error(`[Queue] Errore processando job ${job.id}:`, e);
+    }
   }
 
   get size(): number {

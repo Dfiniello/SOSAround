@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
@@ -16,9 +16,9 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 const locationService = new LocationService();
 
 const TIPO_PIN: Record<string, string> = {
-  CANE: '🐕', GATTO: '🐈', ANIMALE: '🦊',
-  BICI: '🚲', ZAINO: '🎒', PORTAFOGLIO: '👛',
-  CHIAVI: '🔑', ALTRO: '📦',
+  ANIMALE: '🐾',
+  OGGETTO: '📦',
+  ALTRO: '📌',
 };
 
 export const MappaScreen: React.FC = () => {
@@ -30,10 +30,10 @@ export const MappaScreen: React.FC = () => {
   const smartIds = useAppSelector(s => s.smartId.items);
 
   const mapRef = useRef<MapView>(null);
-  const [regione, setRegione] = useState({
-    latitude: 40.8518, longitude: 14.2681,
-    latitudeDelta: 0.05, longitudeDelta: 0.05,
-  });
+  const [regione, setRegione] = useState<{
+    latitude: number; longitude: number;
+    latitudeDelta: number; longitudeDelta: number;
+  } | null>(null);
 
   const controller = new AllertaController(dispatch);
 
@@ -47,8 +47,9 @@ export const MappaScreen: React.FC = () => {
         longitudeDelta: 0.05,
       };
       setRegione(r);
-      mapRef.current?.animateToRegion(r);
-    }).catch(() => {});
+    }).catch(() => {
+      setRegione({ latitude: 41.9028, longitude: 12.4964, latitudeDelta: 5, longitudeDelta: 5 });
+    });
   }, []);
 
   const getBene = (idBene: string) => smartIds.find(b => b.idBene === idBene);
@@ -64,11 +65,18 @@ export const MappaScreen: React.FC = () => {
         </View>
       </View>
 
+      {!regione && (
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={C.primary} />
+          <Text style={styles.loadingText}>Rilevamento posizione…</Text>
+        </View>
+      )}
       <MapView
         ref={mapRef}
         style={styles.mappa}
         provider={PROVIDER_GOOGLE}
-        initialRegion={regione}
+        initialRegion={regione ?? undefined}
+        region={regione ?? undefined}
         showsUserLocation
         showsMyLocationButton={false}
       >
@@ -141,6 +149,12 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 12, fontWeight: '700', color: C.attivoText },
 
   mappa: { flex: 1 },
+  loading: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center', zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  loadingText: { marginTop: 10, color: C.text2, fontSize: 14 },
 
   pin: {
     backgroundColor: C.white,

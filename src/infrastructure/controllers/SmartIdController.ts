@@ -1,10 +1,10 @@
 import type { AppDispatch } from '../store';
-import { aggiungi, caricaStart, caricaSuccess, caricaFailure } from '../store/slices/smartIdSlice';
+import { aggiungi, caricaStart, caricaSuccess, caricaFailure, rimuovi, resetLoading } from '../store/slices/smartIdSlice';
 import { RegistraSmartIdUseCase, RegistraSmartIdInput } from '../../application/useCases/RegistraSmartIdUseCase';
-import { SQLiteSmartIdRepository } from '../repositories/SQLiteSmartIdRepository';
+import { SupabaseSmartIdRepository } from '../repositories/supabase/SupabaseSmartIdRepository';
 import type { SmartId } from '../../domain/entities';
 
-const repo = new SQLiteSmartIdRepository();
+const repo = new SupabaseSmartIdRepository();
 const useCase = new RegistraSmartIdUseCase(repo);
 
 export class SmartIdController {
@@ -15,6 +15,7 @@ export class SmartIdController {
     try {
       const smartId = await useCase.esegui(input);
       this.dispatch(aggiungi(smartId));
+      this.dispatch(resetLoading());
       return smartId;
     } catch (err) {
       this.dispatch(caricaFailure((err as Error).message));
@@ -29,6 +30,16 @@ export class SmartIdController {
       this.dispatch(caricaSuccess(items));
     } catch (err) {
       this.dispatch(caricaFailure((err as Error).message));
+    }
+  }
+
+  async elimina(idBene: string): Promise<void> {
+    try {
+      await repo.delete(idBene);
+      this.dispatch(rimuovi(idBene));
+    } catch (err) {
+      this.dispatch(caricaFailure((err as Error).message));
+      throw err;
     }
   }
 }

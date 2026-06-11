@@ -3,16 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
   TouchableOpacity, TextInput, ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch } from '../../infrastructure/store/hooks';
-import { loginStart, loginSuccess, loginFailure } from '../../infrastructure/store/slices/authSlice';
-import { RegistraUtenteUseCase } from '../../application/useCases/RegistraUtenteUseCase';
-import { SQLiteUtenteRepository } from '../../infrastructure/repositories/SQLiteUtenteRepository';
+import { loginStart, loginFailure } from '../../infrastructure/store/slices/authSlice';
 import { AuthService } from '../../infrastructure/services/AuthService';
 import { C } from '../theme/colors';
 
-const repo        = new SQLiteUtenteRepository();
-const useCase     = new RegistraUtenteUseCase(repo);
 const authService = new AuthService();
 
 export const AuthScreen: React.FC = () => {
@@ -30,12 +27,11 @@ export const AuthScreen: React.FC = () => {
     setIsLoading(true);
     dispatch(loginStart());
     try {
+      authService.validaEmail(email);
       authService.validaPassword(password);
-      const hash   = await authService.hashPassword(password);
-      const utente = await useCase.esegui({ nome, email, password, passwordHash: hash });
-      await authService.salvaSessione(utente.idUtente, hash);
-      const { passwordHash: _, ...pub } = utente;
-      dispatch(loginSuccess(pub));
+      // La registrazione crea l'utente su Supabase Auth + profilo
+      // onAuthStateChange in App.tsx gestisce il dispatch loginSuccess
+      await authService.registra(nome.trim(), email.trim(), password);
     } catch (e) {
       const msg = (e as Error).message;
       setErrore(msg);
@@ -50,13 +46,10 @@ export const AuthScreen: React.FC = () => {
     setIsLoading(true);
     dispatch(loginStart());
     try {
-      const utente = await repo.findByEmail(email);
-      if (!utente) throw new Error('Email o password errata.');
-      const hash = await authService.hashPassword(password);
-      if (hash !== utente.passwordHash) throw new Error('Email o password errata.');
-      await authService.salvaSessione(utente.idUtente, hash);
-      const { passwordHash: _, ...pub } = utente;
-      dispatch(loginSuccess(pub));
+      authService.validaEmail(email);
+      // Il login aggiorna la sessione Supabase
+      // onAuthStateChange in App.tsx gestisce il dispatch loginSuccess
+      await authService.login(email.trim(), password);
     } catch (e) {
       const msg = (e as Error).message;
       setErrore(msg);
@@ -69,7 +62,8 @@ export const AuthScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -138,7 +132,7 @@ export const AuthScreen: React.FC = () => {
                 autoCapitalize="none"
               />
               <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPass(v => !v)}>
-                <Text style={styles.eyeIcon}>{showPass ? '🙈' : '👁'}</Text>
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={C.text2} />
               </TouchableOpacity>
             </View>
           </View>
@@ -211,7 +205,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 12, borderBottomRightRadius: 12,
     paddingHorizontal: 14, paddingVertical: 13, backgroundColor: C.bg,
   },
-  eyeIcon: { fontSize: 16 },
 
   erroreBox: { backgroundColor: '#FEF2F2', padding: 12, borderRadius: 10, marginBottom: 16 },
   erroreText: { color: C.danger, fontSize: 13 },
