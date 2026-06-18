@@ -8,9 +8,10 @@ import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks';
 import { ChatController } from '../../infrastructure/controllers/ChatController';
-import { aggiungiMessaggio } from '../../infrastructure/store/slices/messaggioSlice';
+import { aggiungiMessaggio, chiaveConversazione } from '../../infrastructure/store/slices/messaggioSlice';
 import { SegnalazioneChiusaException } from '../../domain/entities';
-import { supabase } from '../../infrastructure/supabase/supabaseClient';
+import { getSocket } from '../../infrastructure/realtime/socketClient';
+import { rowToMessaggio } from '../../infrastructure/repositories/api/ApiMessaggioRepository';
 import { C } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { Messaggio } from '../../domain/entities';
@@ -22,9 +23,16 @@ export const ChatScreen: React.FC = () => {
   const navigation = useNavigation();
   const dispatch   = useAppDispatch();
   const utente     = useAppSelector(s => s.auth.utente);
-  const messaggi   = useAppSelector(
-    s => s.messaggio.conversazioni[route.params.idSegnalazione] ?? []
-  );
+
+  const { idSegnalazione, idRitrovatore, titolo } = route.params;
+  // Chiave della conversazione 1:1 (proprietario ↔ questo ritrovatore)
+  const chiave   = chiaveConversazione(idSegnalazione, idRitrovatore);
+  const messaggi = useAppSelector(s => s.messaggio.conversazioni[chiave] ?? []);
+
+  // Imposta il titolo dell'header (nome bene / interlocutore)
+  useEffect(() => {
+    if (titolo) navigation.setOptions({ title: titolo });
+  }, [titolo]);
 
   const [testo, setTesto]           = useState('');
   const [invioInCorso, setInvioInCorso] = useState(false);
@@ -36,12 +44,10 @@ export const ChatScreen: React.FC = () => {
   const controller = new ChatController(dispatch);
 
   useEffect(() => {
-    const idSegnalazione = route.params.idSegnalazione;
-
     (async () => {
       try {
         await controller.apriChat(idSegnalazione);
-        await controller.caricaMessaggi(idSegnalazione);
+        await controller.caricaMessaggi(idSegnalazione, idRitrovatore);
       } catch (e) {
         if (e instanceof SegnalazioneChiusaException) {
           Alert.alert('Emergenza chiusa', e.message, [
@@ -51,48 +57,25 @@ export const ChatScreen: React.FC = () => {
       }
     })();
 
-    // Supabase Realtime — nuovi messaggi arrivano in push senza polling
-    const channel = supabase
-      .channel(`chat:${idSegnalazione}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messaggio',
-          filter: `id_segnalazione=eq.${idSegnalazione}`,
-        },
-        (payload) => {
-          const r = payload.new as {
-            id_messaggio: string; id_segnalazione: string;
-            id_mittente: string; id_destinatario: string;
-            testo: string; timestamp: string;
-            media_url: string | null; coord_lat: number | null; coord_lng: number | null;
-          };
-          const nuovoMsg: Messaggio = {
-            idMessaggio: r.id_messaggio,
-            idSegnalazione: r.id_segnalazione,
-            idMittente: r.id_mittente,
-            idDestinatario: r.id_destinatario,
-            testo: r.testo,
-            timestamp: new Date(r.timestamp),
-            mediaUrl: r.media_url ?? undefined,
-            coordinateGps:
-              r.coord_lat != null && r.coord_lng != null
-                ? { lat: r.coord_lat, lng: r.coord_lng }
-                : undefined,
-          };
-            // Evita duplicati: il mittente ha già aggiunto il msg in handleInvia.
-          // Usa utenteRef (non utente) per leggere il valore aggiornato
-          // anche se l'effetto è montato con deps=[].
-          if (nuovoMsg.idMittente !== utenteRef.current?.idUtente) {
-            dispatch(aggiungiMessaggio(nuovoMsg));
-          }
-        }
-      )
-      .subscribe();
+    // Socket.IO — entra SOLO nella room della conversazione 1:1 (segnalazione+ritrovatore),
+    // così riceve esclusivamente i messaggi tra proprietario e questo ritrovatore.
+    const socket = getSocket();
+    socket.emit('join', chiave);
 
-    return () => { supabase.removeChannel(channel); };
+    const handler = (r: Parameters<typeof rowToMessaggio>[0]) => {
+      const nuovoMsg = rowToMessaggio(r);
+      // Evita duplicati: il mittente ha già aggiunto il msg in handleInvia.
+      if (nuovoMsg.idMittente !== utenteRef.current?.idUtente) {
+        dispatch(aggiungiMessaggio({ chiave, messaggio: nuovoMsg }));
+      }
+    };
+
+    socket.on('messaggio:nuovo', handler);
+
+    return () => {
+      socket.off('messaggio:nuovo', handler);
+      socket.emit('leave', chiave);
+    };
   }, []);
 
   useEffect(() => {
@@ -108,8 +91,9 @@ export const ChatScreen: React.FC = () => {
     setTesto('');
     try {
       await controller.invia({
-        idSegnalazione: route.params.idSegnalazione,
+        idSegnalazione,
         idMittente: utente.idUtente,
+        idRitrovatore,
         testo: testoLocale,
       });
     } catch (e) {

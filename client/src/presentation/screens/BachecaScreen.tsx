@@ -11,7 +11,7 @@ import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks
 import { AllertaController } from '../../infrastructure/controllers/AllertaController';
 import { StatoSegnalazione } from '../../domain/entities';
 import type { Segnalazione } from '../../domain/entities';
-import { supabase } from '../../infrastructure/supabase/supabaseClient';
+import { getSocket } from '../../infrastructure/realtime/socketClient';
 import { C } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -74,17 +74,21 @@ function BachecaCard({
 
         {/* Azioni */}
         <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.btn, isAttivo ? styles.btnContatta : styles.btnDisabled]}
-            onPress={onContatta}
-            disabled={!isAttivo}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="chatbubble-outline" size={14} color={isAttivo ? C.white : C.text3} />
-            <Text style={[styles.btnText, isAttivo ? styles.btnContattaText : styles.btnDisabledText]}>
-              Contatta
-            </Text>
-          </TouchableOpacity>
+          {/* "Contatta" è per chi NON è il proprietario (il potenziale ritrovatore).
+              Il proprietario gestisce le conversazioni dalla tab Messaggi. */}
+          {!isProprietario && (
+            <TouchableOpacity
+              style={[styles.btn, isAttivo ? styles.btnContatta : styles.btnDisabled]}
+              onPress={onContatta}
+              disabled={!isAttivo}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chatbubble-outline" size={14} color={isAttivo ? C.white : C.text3} />
+              <Text style={[styles.btnText, isAttivo ? styles.btnContattaText : styles.btnDisabledText]}>
+                Contatta
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* "Ritrovato" è riservato al proprietario della segnalazione */}
           {isProprietario && (
@@ -120,28 +124,16 @@ export const BachecaScreen: React.FC = () => {
     // Fetch iniziale
     controller.caricaSegnalazioniAttive();
 
-    // Supabase Realtime — nuove segnalazioni arrivano senza refresh manuale
-    const channel = supabase
-      .channel('bacheca:segnalazioni:live')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'segnalazione' },
-        () => {
-          // Ricarica per ottenere i dati mappati + il nome del bene (join)
-          controller.caricaSegnalazioniAttive();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'segnalazione' },
-        () => {
-          // Ricarica per aggiornare stati (es. RITROVATO)
-          controller.caricaSegnalazioniAttive();
-        }
-      )
-      .subscribe();
+    // Socket.IO — nuove segnalazioni / aggiornamenti di stato senza refresh manuale
+    const socket = getSocket();
+    const refresh = () => controller.caricaSegnalazioniAttive();
+    socket.on('segnalazione:nuova', refresh);
+    socket.on('segnalazione:aggiornata', refresh);
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      socket.off('segnalazione:nuova', refresh);
+      socket.off('segnalazione:aggiornata', refresh);
+    };
   }, []);
 
   const getNomeBene = (s: Segnalazione) =>
@@ -172,7 +164,12 @@ export const BachecaScreen: React.FC = () => {
               segnalazione={item}
               nomeBene={nome}
               isProprietario={item.idSegnalatore === utente?.idUtente}
-              onContatta={() => navigation.navigate('Chat', { idSegnalazione: item.idSegnalazione })}
+              onContatta={() => navigation.navigate('Chat', {
+                idSegnalazione: item.idSegnalazione,
+                idProprietario: item.idSegnalatore,
+                idRitrovatore: utente!.idUtente, // il ritrovatore sono io
+                titolo: nome,
+              })}
               onRitrovato={() => handleRitrovato(item.idSegnalazione, nome)}
             />
           );

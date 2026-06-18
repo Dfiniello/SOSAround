@@ -34,11 +34,6 @@ const authSlice = createSlice({
       state.utente = null;
       state.error = null;
     },
-    aggiornaReputazione(state, action: PayloadAction<number>) {
-      if (state.utente) {
-        state.utente.punteggioReputazione = action.payload;
-      }
-    },
     aggiornaPushToken(state, action: PayloadAction<string>) {
       if (state.utente) {
         state.utente.pushToken = action.payload;
@@ -52,7 +47,6 @@ export const {
   loginSuccess,
   loginFailure,
   logout,
-  aggiornaReputazione,
   aggiornaPushToken,
 } = authSlice.actions;
 

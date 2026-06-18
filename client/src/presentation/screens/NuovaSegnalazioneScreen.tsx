@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE, MapPressEvent } from 'react-native-maps';
@@ -31,6 +32,9 @@ export const NuovaSegnalazioneScreen: React.FC = () => {
   // Posizione del pin sulla mappa (null = non ancora piazzato)
   const [pinCoord, setPinCoord] = useState<{ lat: number; lng: number } | null>(null);
 
+  // Mappa a tutto schermo
+  const [mappaFullscreen, setMappaFullscreen] = useState(false);
+
   // Regione iniziale della mappa
   const [regione, setRegione] = useState({
     latitude: DEFAULT_LAT,
@@ -40,6 +44,24 @@ export const NuovaSegnalazioneScreen: React.FC = () => {
   });
 
   const mapRef = useRef<MapView>(null);
+  const fullMapRef = useRef<MapView>(null);
+
+  // Centra la mappa a tutto schermo sulla posizione GPS attuale
+  const handleCentraGpsFull = async () => {
+    try {
+      const pos = await locationService.getPosizione();
+      const r = {
+        latitude: pos.latitudine,
+        longitude: pos.longitudine,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
+      };
+      fullMapRef.current?.animateToRegion(r, 400);
+      setPinCoord({ lat: pos.latitudine, lng: pos.longitudine });
+    } catch {
+      Alert.alert('GPS non disponibile', 'Tocca manualmente sulla mappa per indicare il luogo.');
+    }
+  };
 
   const allertaCtrl = new AllertaController(dispatch);
   const smartIdCtrl = new SmartIdController(dispatch);
@@ -147,8 +169,8 @@ export const NuovaSegnalazioneScreen: React.FC = () => {
             placeholderTextColor={C.text3}
           />
 
-          {/* Campo: descrizione luogo (opzionale) */}
-          <Text style={[styles.label, styles.labelTop]}>Dove? (Opzionale)</Text>
+          {/* Campo: descrizione luogo */}
+          <Text style={[styles.label, styles.labelTop]}>Dove?</Text>
           <TextInput
             style={styles.input}
             value={dove}
@@ -201,6 +223,15 @@ export const NuovaSegnalazioneScreen: React.FC = () => {
                   </View>
                 </View>
               )}
+
+              {/* Bottone per aprire la mappa a tutto schermo */}
+              <TouchableOpacity
+                style={styles.expandBtn}
+                onPress={() => setMappaFullscreen(true)}
+                accessibilityLabel="Apri mappa a tutto schermo"
+              >
+                <Ionicons name="expand" size={18} color={C.text1} />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -231,6 +262,70 @@ export const NuovaSegnalazioneScreen: React.FC = () => {
         </View>
 
       </KeyboardAvoidingView>
+
+      {/* Mappa a tutto schermo */}
+      <Modal
+        visible={mappaFullscreen}
+        animationType="slide"
+        onRequestClose={() => setMappaFullscreen(false)}
+      >
+        <View style={styles.fullContainer}>
+          <MapView
+            ref={fullMapRef}
+            style={styles.flex}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={
+              pinCoord
+                ? { latitude: pinCoord.lat, longitude: pinCoord.lng, latitudeDelta: 0.03, longitudeDelta: 0.03 }
+                : regione
+            }
+            onPress={handleMapPress}
+            showsUserLocation
+            showsMyLocationButton={false}
+          >
+            {pinCoord && (
+              <Marker
+                coordinate={{ latitude: pinCoord.lat, longitude: pinCoord.lng }}
+                title={cosa || 'Oggetto smarrito'}
+                pinColor={C.danger}
+              />
+            )}
+          </MapView>
+
+          {/* Header con titolo e chiusura */}
+          <SafeAreaView style={styles.fullHeader} edges={['top']} pointerEvents="box-none">
+            <View style={styles.fullHeaderRow}>
+              <TouchableOpacity
+                style={styles.fullCloseBtn}
+                onPress={() => setMappaFullscreen(false)}
+                accessibilityLabel="Chiudi mappa"
+              >
+                <Ionicons name="close" size={24} color={C.text1} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.fullGpsBtn} onPress={handleCentraGpsFull}>
+                <Ionicons name="locate" size={16} color={C.primary} />
+                <Text style={styles.gpsBtnText}>La mia posizione</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+
+          {/* Hint + conferma */}
+          <SafeAreaView style={styles.fullFooter} edges={['bottom']} pointerEvents="box-none">
+            <Text style={styles.fullHint}>
+              {pinCoord
+                ? `Pin: ${pinCoord.lat.toFixed(4)}, ${pinCoord.lng.toFixed(4)}`
+                : 'Tocca sulla mappa per piazzare il pin'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.btnInvia, !pinCoord && styles.btnDisabilitato]}
+              onPress={() => setMappaFullscreen(false)}
+              disabled={!pinCoord}
+            >
+              <Text style={styles.btnInviaText}>Conferma posizione</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -285,6 +380,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
   },
   mapOverlayText: { color: C.white, fontSize: 13, fontWeight: '600' },
+
+  expandBtn: {
+    position: 'absolute', top: 10, right: 10,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: C.white, alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 }, elevation: 3,
+  },
+
+  // Mappa a tutto schermo
+  fullContainer: { flex: 1, backgroundColor: C.white },
+  fullHeader: { position: 'absolute', top: 0, left: 0, right: 0 },
+  fullHeaderRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingTop: 8,
+  },
+  fullCloseBtn: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: C.white, alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 }, elevation: 3,
+  },
+  fullGpsBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 9,
+    backgroundColor: C.white, borderRadius: 20,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 }, elevation: 3,
+  },
+  fullFooter: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 20, paddingBottom: 12,
+  },
+  fullHint: {
+    fontSize: 13, color: C.text1, fontWeight: '600',
+    textAlign: 'center', marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingVertical: 6, borderRadius: 8,
+    overflow: 'hidden',
+  },
 
   erroreBox: {
     marginTop: 16, backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12,

@@ -1,17 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks';
-import { AllertaController } from '../../infrastructure/controllers/AllertaController';
+import { api } from '../../infrastructure/api/apiClient';
+import { getSocket } from '../../infrastructure/realtime/socketClient';
 import { C } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+// Forma restituita da GET /conversazioni
+interface Conversazione {
+  id_segnalazione: string;
+  id_proprietario: string;
+  id_ritrovatore: string;
+  altro_id: string;
+  altro_nome: string;
+  nome_bene: string | null;
+  ultimo_testo: string;
+  ultimo_ts: string;
+}
 
 const AVATAR_COLORS = [
   '#DBEAFE', '#D1FAE5', '#FEF3C7', '#FCE7F3', '#EDE9FE', '#FED7AA',
@@ -28,65 +41,73 @@ function initials(nome: string): string {
 }
 
 export const MessaggiListScreen: React.FC = () => {
-  const navigation    = useNavigation<Nav>();
-  const dispatch      = useAppDispatch();
-  const conversazioni = useAppSelector(s => s.messaggio.conversazioni);
-  const segnalazioni  = useAppSelector(s => s.segnalazione.attive);
-  const smartIds      = useAppSelector(s => s.smartId.items);
+  const navigation = useNavigation<Nav>();
+  const [conversazioni, setConversazioni] = useState<Conversazione[]>([]);
 
-  const controller = new AllertaController(dispatch);
+  // Ricarica la lista al focus della tab e ad ogni nuovo messaggio (realtime)
+  useFocusEffect(
+    useCallback(() => {
+      let attivo = true;
+      const carica = () => {
+        api.get<Conversazione[]>('/conversazioni')
+          .then(c => { if (attivo) setConversazioni(c); })
+          .catch(() => { if (attivo) setConversazioni([]); });
+      };
+      carica();
 
-  useEffect(() => {
-    controller.caricaSegnalazioniAttive();
-  }, []);
-
-  // Costruisce lista conversazioni da segnalazioni attive con messaggi
-  const items = segnalazioni.map(s => {
-    const msgs = conversazioni[s.idSegnalazione] ?? [];
-    const ultimo = msgs[msgs.length - 1];
-    // nomeBene è salvato sulla segnalazione → visibile a tutti, non solo al proprietario
-    const nome = s.nomeBene
-      ?? smartIds.find(b => b.idBene === s.idBene)?.nome
-      ?? 'Oggetto smarrito';
-    return {
-      idSegnalazione: s.idSegnalazione,
-      nome,
-      ultimoMsg: ultimo?.testo ?? 'Nessun messaggio',
-      ora: ultimo
-        ? new Date(ultimo.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
-        : '',
-    };
-  });
+      const socket = getSocket();
+      socket.on('messaggio:nuovo:global', carica);
+      return () => {
+        attivo = false;
+        socket.off('messaggio:nuovo:global', carica);
+      };
+    }, [])
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <FlatList
-        data={items}
-        keyExtractor={i => i.idSegnalazione}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => navigation.navigate('Chat', { idSegnalazione: item.idSegnalazione })}
-            activeOpacity={0.7}
-          >
-            {/* Avatar */}
-            <View style={[styles.avatar, { backgroundColor: avatarColor(item.idSegnalazione) }]}>
-              <Text style={styles.avatarText}>{initials(item.nome)}</Text>
-            </View>
+        data={conversazioni}
+        keyExtractor={c => `${c.id_segnalazione}:${c.id_ritrovatore}`}
+        renderItem={({ item }) => {
+          const ora = item.ultimo_ts
+            ? new Date(item.ultimo_ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+            : '';
+          return (
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => navigation.navigate('Chat', {
+                idSegnalazione: item.id_segnalazione,
+                idProprietario: item.id_proprietario,
+                idRitrovatore: item.id_ritrovatore,
+                titolo: item.altro_nome,
+              })}
+              activeOpacity={0.7}
+            >
+              {/* Avatar */}
+              <View style={[styles.avatar, { backgroundColor: avatarColor(item.altro_id) }]}>
+                <Text style={styles.avatarText}>{initials(item.altro_nome)}</Text>
+              </View>
 
-            {/* Testo */}
-            <View style={styles.content}>
-              <Text style={styles.nome}>{item.nome}</Text>
-              <Text style={styles.preview} numberOfLines={1}>{item.ultimoMsg}</Text>
-            </View>
+              {/* Testo */}
+              <View style={styles.content}>
+                <Text style={styles.nome}>
+                  {item.altro_nome}
+                  {item.nome_bene ? <Text style={styles.bene}>  · {item.nome_bene}</Text> : null}
+                </Text>
+                <Text style={styles.preview} numberOfLines={1}>
+                  {item.ultimo_testo || 'Nessun messaggio'}
+                </Text>
+              </View>
 
-            {/* Orario + freccia */}
-            <View style={styles.right}>
-              {item.ora ? <Text style={styles.ora}>{item.ora}</Text> : null}
-              <Ionicons name="chevron-forward" size={16} color={C.text3} style={{ marginTop: 2 }} />
-            </View>
-          </TouchableOpacity>
-        )}
+              {/* Orario + freccia */}
+              <View style={styles.right}>
+                {ora ? <Text style={styles.ora}>{ora}</Text> : null}
+                <Ionicons name="chevron-forward" size={16} color={C.text3} style={{ marginTop: 2 }} />
+              </View>
+            </TouchableOpacity>
+          );
+        }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -126,6 +147,7 @@ const styles = StyleSheet.create({
 
   content: { flex: 1 },
   nome:    { fontSize: 15, fontWeight: '700', color: C.text1 },
+  bene:    { fontSize: 13, fontWeight: '500', color: C.text3 },
   preview: { fontSize: 13, color: C.text2, marginTop: 2 },
 
   right: { alignItems: 'flex-end' },

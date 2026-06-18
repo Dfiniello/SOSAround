@@ -12,6 +12,9 @@ import { generateId } from '../../utils/uuid';
 export interface InviaMessaggioInput {
   idSegnalazione: string;
   idMittente: string;
+  // Ritrovatore della conversazione 1:1 (la controparte non-proprietario).
+  // La conversazione è sempre tra il proprietario (idSegnalatore) e questo ritrovatore.
+  idRitrovatore: string;
   testo: string;
   mediaUrl?: string;
   coordinateGps?: { lat: number; lng: number };
@@ -36,20 +39,11 @@ export class ComunicazioneRealtimeUseCase {
     if (!s) throw new Error('Segnalazione non trovata.');
     if (s.stato !== StatoSegnalazione.ATTIVO) throw new SegnalazioneChiusaException();
 
-    // Determina il destinatario corretto:
-    // - se a scrivere è il ritrovatore → destinatario è il segnalatore (proprietario)
-    // - se a scrivere è il segnalatore → destinatario è il ritrovatore, ricavato
-    //   dal primo messaggio della conversazione inviato dall'altra parte.
-    // Senza questo, le risposte del proprietario avrebbero destinatario = se stesso
-    // e la RLS di Supabase non le consegnerebbe in realtime al ritrovatore.
-    let idDestinatario: string;
-    if (input.idMittente === s.idSegnalatore) {
-      const msgs = await this.archivioMessaggi.findBySegnalazione(input.idSegnalazione);
-      const altro = msgs.find(m => m.idMittente !== s.idSegnalatore);
-      idDestinatario = altro?.idMittente ?? s.idSegnalatore;
-    } else {
-      idDestinatario = s.idSegnalatore;
-    }
+    // Destinatario della conversazione 1:1 proprietario↔ritrovatore:
+    // - se a scrivere è il proprietario → destinatario è il ritrovatore di QUESTA conversazione
+    // - altrimenti (scrive il ritrovatore) → destinatario è il proprietario
+    const idDestinatario =
+      input.idMittente === s.idSegnalatore ? input.idRitrovatore : s.idSegnalatore;
 
     if (input.mediaUrl) {
       const ok = await this.verificaUpload(input.mediaUrl);

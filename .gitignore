@@ -80,3 +80,10 @@ logs
 
 # Cache
 .cache/
+
+# Server (SQLite DB + build)
+server/node_modules/
+server/dist/
+server/*.db
+server/*.db-wal
+server/*.db-shm

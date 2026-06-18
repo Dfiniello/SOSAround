@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks';
 import { SmartIdController } from '../../infrastructure/controllers/SmartIdController';
 import { AuthService } from '../../infrastructure/services/AuthService';
+import { logout } from '../../infrastructure/store/slices/authSlice';
+import { disconnettiSocket } from '../../infrastructure/realtime/socketClient';
 import { C } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { SmartId } from '../../domain/entities';
@@ -85,7 +87,11 @@ export const VaultScreen: React.FC = () => {
         { text: 'Annulla', style: 'cancel' },
         {
           text: 'Disconnetti', style: 'destructive',
-          onPress: () => authService.logout(),
+          onPress: async () => {
+            await authService.logout();
+            disconnettiSocket();
+            dispatch(logout());
+          },
         },
       ]
     );

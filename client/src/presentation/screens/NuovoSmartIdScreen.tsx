@@ -2,9 +2,12 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform,
+  TouchableOpacity, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks';
@@ -32,6 +35,36 @@ export const NuovoSmartIdScreen: React.FC = () => {
   const [errore, setErrore] = useState<string | null>(null);
 
   const controller = new SmartIdController(dispatch);
+
+  // Scatta una foto con la fotocamera
+  const handleScattaFoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permesso negato', 'Consenti l\'accesso alla fotocamera per scattare una foto.');
+      return;
+    }
+    const res = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!res.canceled && res.assets[0]) setFotoUrl(res.assets[0].uri);
+  };
+
+  // Scegli una foto dalla galleria
+  const handleScegliGalleria = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permesso negato', 'Consenti l\'accesso alla galleria per scegliere una foto.');
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!res.canceled && res.assets[0]) setFotoUrl(res.assets[0].uri);
+  };
 
   const handleRegistra = async () => {
     if (!utente) return;
@@ -84,13 +117,25 @@ export const NuovoSmartIdScreen: React.FC = () => {
             onChangeText={setCodice}
             placeholder="es. 941000023456789"
           />
-          <Input
-            label="URL Foto (opzionale)"
-            value={fotoUrl}
-            onChangeText={setFotoUrl}
-            placeholder="https://..."
-            keyboardType="default"
-          />
+          <Text style={styles.sectionLabel}>Foto del bene (opzionale)</Text>
+          {fotoUrl ? (
+            <View style={styles.fotoPreviewWrap}>
+              <Image source={{ uri: fotoUrl }} style={styles.fotoPreview} />
+              <TouchableOpacity style={styles.fotoRemove} onPress={() => setFotoUrl('')}>
+                <Ionicons name="close-circle" size={26} color="#E63946" />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+          <View style={styles.fotoBtnRow}>
+            <TouchableOpacity style={styles.fotoBtn} onPress={handleScattaFoto}>
+              <Ionicons name="camera" size={20} color="#1d1d1f" />
+              <Text style={styles.fotoBtnText}>Scatta foto</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.fotoBtn} onPress={handleScegliGalleria}>
+              <Ionicons name="images" size={20} color="#1d1d1f" />
+              <Text style={styles.fotoBtnText}>Galleria</Text>
+            </TouchableOpacity>
+          </View>
 
           {(errore || errorRedux) && (
             <Text style={styles.errore}>{errore ?? errorRedux}</Text>
@@ -119,6 +164,16 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 10 },
   tipiRow: { marginBottom: 24 },
   tipoBtn: { marginRight: 10, minWidth: 120 },
+  fotoBtnRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  fotoBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 14, borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#e0e0e0', backgroundColor: '#fafafa',
+  },
+  fotoBtnText: { fontSize: 14, fontWeight: '600', color: '#1d1d1f' },
+  fotoPreviewWrap: { marginBottom: 12, alignSelf: 'flex-start' },
+  fotoPreview: { width: 140, height: 140, borderRadius: 12, backgroundColor: '#f0f0f0' },
+  fotoRemove: { position: 'absolute', top: -8, right: -8, backgroundColor: '#fff', borderRadius: 13 },
   errore: {
     color: '#E63946', fontSize: 13,
     backgroundColor: '#fef2f2', padding: 12, borderRadius: 8, marginTop: 4,

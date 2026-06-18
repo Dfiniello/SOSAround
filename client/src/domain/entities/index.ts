@@ -17,18 +17,6 @@ export enum StatoSegnalazione {
   SCADUTO = 'SCADUTO',
 }
 
-export enum StatoEvento {
-  PROGRAMMATO = 'PROGRAMMATO',
-  IN_CORSO = 'IN_CORSO',
-  CONCLUSO = 'CONCLUSO',
-}
-
-export enum EsitoEvento {
-  RITROVATO = 'RITROVATO',
-  NON_RITROVATO = 'NON_RITROVATO',
-  PENDING = 'PENDING',
-}
-
 // ── Entity: Utente ─────────────────────────────────────────
 
 export interface Utente {
@@ -68,40 +56,6 @@ export interface Segnalazione {
   descrizioneEmergenza: string;
   raggioProssimita: number;    // km — configurato da chi perde
   nomeBene?: string;           // denormalizzato via join smartid — visibile a tutti gli utenti
-}
-
-// ── Entity: EventoRicerca (Mobilitazione) ──────────────────
-
-export interface EventoRicerca {
-  idEvento: string;
-  idOrganizzatore: string;     // FK → Utente.idUtente
-  idSegnalazione: string;      // evento legato a una segnalazione
-  latitudine: number;
-  longitudine: number;
-  orario: Date;
-  durata: number;              // minuti
-  raggioCopertura: number;     // km
-  stato: StatoEvento;
-  esito: EsitoEvento;
-}
-
-// ── Entity: PartecipazioneEvento (chiave composta) ─────────
-
-export interface PartecipazioneEvento {
-  idUtente: string;            // FK
-  idEvento: string;            // FK
-  checkIn?: Date;
-}
-
-// ── Entity: ZonaInteresse (Geofencing) ─────────────────────
-
-export interface ZonaInteresse {
-  idZona: string;
-  idUtente: string;            // FK → Utente.idUtente
-  latitudine: number;
-  longitudine: number;
-  raggio: number;              // km
-  etichetta: string;           // es. "Casa", "Ufficio"
 }
 
 // ── Entity: Messaggio (Chat real-time) ─────────────────────

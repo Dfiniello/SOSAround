@@ -6,8 +6,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch } from '../../infrastructure/store/hooks';
-import { loginStart, loginFailure } from '../../infrastructure/store/slices/authSlice';
+import { loginStart, loginFailure, loginSuccess } from '../../infrastructure/store/slices/authSlice';
 import { AuthService } from '../../infrastructure/services/AuthService';
+import { connettiSocket } from '../../infrastructure/realtime/socketClient';
 import { C } from '../theme/colors';
 
 const authService = new AuthService();
@@ -29,9 +30,10 @@ export const AuthScreen: React.FC = () => {
     try {
       authService.validaEmail(email);
       authService.validaPassword(password);
-      // La registrazione crea l'utente su Supabase Auth + profilo
-      // onAuthStateChange in App.tsx gestisce il dispatch loginSuccess
-      await authService.registra(nome.trim(), email.trim(), password);
+      // Registra sul server, ottiene JWT + utente e avvia la sessione
+      const utente = await authService.registra(nome.trim(), email.trim(), password);
+      dispatch(loginSuccess(utente));
+      connettiSocket();
     } catch (e) {
       const msg = (e as Error).message;
       setErrore(msg);
@@ -47,9 +49,10 @@ export const AuthScreen: React.FC = () => {
     dispatch(loginStart());
     try {
       authService.validaEmail(email);
-      // Il login aggiorna la sessione Supabase
-      // onAuthStateChange in App.tsx gestisce il dispatch loginSuccess
-      await authService.login(email.trim(), password);
+      // Login sul server, ottiene JWT + utente e avvia la sessione
+      const utente = await authService.login(email.trim(), password);
+      dispatch(loginSuccess(utente));
+      connettiSocket();
     } catch (e) {
       const msg = (e as Error).message;
       setErrore(msg);

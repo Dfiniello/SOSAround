@@ -3,14 +3,14 @@ import {
   aggiungi, caricaStart, caricaFailure, setAvviso, caricaSuccess, rimuovi, resetLoading,
 } from '../store/slices/segnalazioneSlice';
 import { AttivaAllertaUseCase, AttivaAllertaInput } from '../../application/useCases/AttivaAllertaUseCase';
-import { SupabaseSmartIdRepository } from '../repositories/supabase/SupabaseSmartIdRepository';
-import { SupabaseSegnalazioneRepository } from '../repositories/supabase/SupabaseSegnalazioneRepository';
-import { SupabaseUtenteRepository } from '../repositories/supabase/SupabaseUtenteRepository';
+import { ApiSmartIdRepository } from '../repositories/api/ApiSmartIdRepository';
+import { ApiSegnalazioneRepository } from '../repositories/api/ApiSegnalazioneRepository';
+import { ApiUtenteRepository } from '../repositories/api/ApiUtenteRepository';
 import { ExpoGatewayNotifiche } from '../services/ExpoGatewayNotifiche';
 
-const smartIdRepo      = new SupabaseSmartIdRepository();
-const segnalazioneRepo = new SupabaseSegnalazioneRepository();
-const utenteRepo       = new SupabaseUtenteRepository();
+const smartIdRepo      = new ApiSmartIdRepository();
+const segnalazioneRepo = new ApiSegnalazioneRepository();
+const utenteRepo       = new ApiUtenteRepository();
 const gateway          = new ExpoGatewayNotifiche();
 
 const useCase = new AttivaAllertaUseCase(smartIdRepo, segnalazioneRepo, utenteRepo, gateway);

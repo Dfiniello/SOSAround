@@ -26,7 +26,12 @@ export type RootStackParamList = {
   NuovoSmartId: undefined;
   DettaglioSmartId: { idBene: string };
   AttivaAllerta: { idBene: string };
-  Chat: { idSegnalazione: string };
+  Chat: {
+    idSegnalazione: string;
+    idProprietario: string;   // chi ha aperto la segnalazione
+    idRitrovatore: string;    // l'altro interlocutore della conversazione 1:1
+    titolo?: string;          // nome bene / interlocutore, mostrato nell'header
+  };
   Scanner: undefined;
 };
 

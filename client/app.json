@@ -16,7 +16,8 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "SOSAround usa la tua posizione per notifiche di prossimità.",
         "NSLocationAlwaysUsageDescription": "SOSAround usa la tua posizione in background per geofencing.",
-        "NSCameraUsageDescription": "SOSAround usa la fotocamera per scansionare QR code.",
+        "NSCameraUsageDescription": "SOSAround usa la fotocamera per scansionare QR code e fotografare i tuoi beni.",
+        "NSPhotoLibraryUsageDescription": "SOSAround accede alla galleria per scegliere la foto del tuo bene.",
         "NSMicrophoneUsageDescription": "SOSAround usa il microfono per registrare messaggi vocali."
       }
     },
@@ -39,6 +40,13 @@
         "expo-notifications",
         {
           "color": "#E63946"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SOSAround accede alla galleria per scegliere la foto del tuo bene.",
+          "cameraPermission": "SOSAround usa la fotocamera per fotografare i tuoi beni."
         }
       ]
     ],

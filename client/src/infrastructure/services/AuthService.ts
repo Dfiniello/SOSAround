@@ -1,5 +1,14 @@
-import { supabase } from '../supabase/supabaseClient';
-import { PasswordDeboleException } from '../../domain/entities';
+import { api, setToken, caricaTokenDaDisco } from '../api/apiClient';
+import { rowToUtente } from '../repositories/api/ApiUtenteRepository';
+import { PasswordDeboleException, Utente } from '../../domain/entities';
+
+type UtenteRow = {
+  id_utente: string; nome: string; email: string;
+  punteggio: number; data_reg: string; push_token: string | null;
+};
+type AuthResponse = { token: string; utente: UtenteRow };
+
+export type UtentePubblico = Omit<Utente, 'passwordHash'>;
 
 export class AuthService {
   validaEmail(email: string): void {
@@ -12,44 +21,35 @@ export class AuthService {
     if (!regex.test(password)) throw new PasswordDeboleException();
   }
 
-  async registra(nome: string, email: string, password: string): Promise<string> {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      if (error.message.includes('already registered'))
-        throw new Error("L'email è già registrata.");
-      throw new Error(error.message);
-    }
-    const userId = data.user!.id;
-
-    // Controlla unicità nome utente
-    const { data: existing } = await supabase
-      .from('profilo')
-      .select('id')
-      .eq('nome', nome)
-      .maybeSingle();
-    if (existing) throw new Error(`Il nome utente "${nome}" è già in uso.`);
-
-    const { error: profileError } = await supabase
-      .from('profilo')
-      .insert({ id: userId, nome, punteggio: 0 });
-    if (profileError) throw new Error(profileError.message);
-
-    return userId;
+  async registra(nome: string, email: string, password: string): Promise<UtentePubblico> {
+    const res = await api.post<AuthResponse>('/auth/register', { nome, email, password });
+    await setToken(res.token);
+    const { passwordHash, ...pub } = rowToUtente(res.utente);
+    return pub;
   }
 
-  async login(email: string, password: string): Promise<string> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error('Email o password errata.');
-    return data.user.id;
+  async login(email: string, password: string): Promise<UtentePubblico> {
+    const res = await api.post<AuthResponse>('/auth/login', { email, password });
+    await setToken(res.token);
+    const { passwordHash, ...pub } = rowToUtente(res.utente);
+    return pub;
   }
 
   async logout(): Promise<void> {
-    await supabase.auth.signOut();
+    await setToken(null);
   }
 
-  async getSessioneAttiva(): Promise<{ idUtente: string } | null> {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) return null;
-    return { idUtente: data.session.user.id };
+  // Ricarica il JWT dal disco e recupera l'utente corrente (bootstrap all'avvio app).
+  async getSessioneAttiva(): Promise<UtentePubblico | null> {
+    const token = await caricaTokenDaDisco();
+    if (!token) return null;
+    try {
+      const res = await api.get<{ utente: UtenteRow }>('/auth/me');
+      const { passwordHash, ...pub } = rowToUtente(res.utente);
+      return pub;
+    } catch {
+      await setToken(null); // token scaduto/invalido
+      return null;
+    }
   }
 }

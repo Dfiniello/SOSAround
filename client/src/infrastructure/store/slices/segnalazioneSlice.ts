@@ -1,9 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { Segnalazione, StatoSegnalazione } from '../../../domain/entities';
+import type { Segnalazione } from '../../../domain/entities';
 
 interface SegnalazioneState {
   attive: Segnalazione[];
-  selezionata: Segnalazione | null;
   isLoading: boolean;
   error: string | null;
   avviso: string | null;  // es. timeout notifiche
@@ -11,7 +10,6 @@ interface SegnalazioneState {
 
 const initialState: SegnalazioneState = {
   attive: [],
-  selezionata: null,
   isLoading: false,
   error: null,
   avviso: null,
@@ -34,20 +32,16 @@ const segnalazioneSlice = createSlice({
       state.error = action.payload;
     },
     aggiungi(state, action: PayloadAction<Segnalazione>) {
-      state.attive.push(action.payload);
+      // Idempotente: evita doppioni quando l'inserimento locale e l'evento
+      // realtime 'segnalazione:nuova' (sullo stesso device del creatore)
+      // tentano entrambi di aggiungere la stessa segnalazione.
+      const esiste = state.attive.some(
+        s => s.idSegnalazione === action.payload.idSegnalazione
+      );
+      if (!esiste) state.attive.push(action.payload);
     },
     rimuovi(state, action: PayloadAction<string>) {
       state.attive = state.attive.filter(s => s.idSegnalazione !== action.payload);
-    },
-    seleziona(state, action: PayloadAction<Segnalazione | null>) {
-      state.selezionata = action.payload;
-    },
-    aggiornaStato(
-      state,
-      action: PayloadAction<{ id: string; stato: StatoSegnalazione }>
-    ) {
-      const s = state.attive.find(s => s.idSegnalazione === action.payload.id);
-      if (s) s.stato = action.payload.stato;
     },
     setAvviso(state, action: PayloadAction<string | null>) {
       state.avviso = action.payload;
@@ -64,8 +58,6 @@ export const {
   caricaFailure,
   aggiungi,
   rimuovi,
-  seleziona,
-  aggiornaStato,
   setAvviso,
   resetLoading,
 } = segnalazioneSlice.actions;

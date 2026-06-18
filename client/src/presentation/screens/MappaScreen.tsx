@@ -28,6 +28,7 @@ export const MappaScreen: React.FC = () => {
     s.segnalazione.attive.filter(s => s.stato === StatoSegnalazione.ATTIVO)
   );
   const smartIds = useAppSelector(s => s.smartId.items);
+  const utente   = useAppSelector(s => s.auth.utente);
 
   const mapRef = useRef<MapView>(null);
   const [regione, setRegione] = useState<{
@@ -89,7 +90,12 @@ export const MappaScreen: React.FC = () => {
                 title={bene?.nome ?? 'Bene smarrito'}
                 description={s.descrizioneEmergenza}
                 onCalloutPress={() =>
-                  navigation.navigate('Chat', { idSegnalazione: s.idSegnalazione })
+                  navigation.navigate('Chat', {
+                    idSegnalazione: s.idSegnalazione,
+                    idProprietario: s.idSegnalatore,
+                    idRitrovatore: utente!.idUtente, // contatto come ritrovatore
+                    titolo: bene?.nome ?? 'Bene smarrito',
+                  })
                 }
               >
                 <View style={styles.pin}>

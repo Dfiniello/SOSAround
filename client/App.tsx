@@ -6,14 +6,16 @@ import { StatusBar } from 'expo-status-bar';
 import { useSelector } from 'react-redux';
 import { store, type RootState } from './src/infrastructure/store';
 import { AppNavigator } from './src/presentation/navigation/AppNavigator';
-import { supabase } from './src/infrastructure/supabase/supabaseClient';
-import { SupabaseUtenteRepository } from './src/infrastructure/repositories/supabase/SupabaseUtenteRepository';
+import { AuthService } from './src/infrastructure/services/AuthService';
+import { ApiUtenteRepository } from './src/infrastructure/repositories/api/ApiUtenteRepository';
+import { getSocket, connettiSocket } from './src/infrastructure/realtime/socketClient';
 import { loginSuccess, logout, aggiornaPushToken } from './src/infrastructure/store/slices/authSlice';
 import { mostraNotificaLocale } from './src/infrastructure/services/LocalNotifications';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
-const utenteRepo = new SupabaseUtenteRepository();
+const authService = new AuthService();
+const utenteRepo = new ApiUtenteRepository();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -27,20 +29,16 @@ Notifications.setNotificationHandler({
 
 function AppInner() {
   useEffect(() => {
-    // Gestione sessione Supabase — si aggiorna automaticamente al login/logout
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const utente = await utenteRepo.findById(session.user.id);
-          if (utente) {
-            const { passwordHash: _, ...pub } = utente;
-            store.dispatch(loginSuccess({ ...pub, email: session.user.email ?? '' }));
-          }
-        } else {
-          store.dispatch(logout());
-        }
+    // Bootstrap sessione: ricarica il JWT da disco e recupera l'utente.
+    (async () => {
+      const utente = await authService.getSessioneAttiva();
+      if (utente) {
+        store.dispatch(loginSuccess(utente));
+        connettiSocket();
+      } else {
+        store.dispatch(logout());
       }
-    );
+    })();
 
     // Registra push token (solo in development build, non in Expo Go)
     const isDevBuild = Constants.appOwnership !== 'expo';
@@ -49,7 +47,6 @@ function AppInner() {
         try {
           const { status } = await Notifications.requestPermissionsAsync();
           if (status === 'granted') {
-            // projectId richiesto dalle versioni recenti di Expo per le push remote
             const projectId =
               Constants.expoConfig?.extra?.eas?.projectId ??
               Constants.easConfig?.projectId;
@@ -57,9 +54,9 @@ function AppInner() {
               projectId ? { projectId } : undefined
             );
             store.dispatch(aggiornaPushToken(tokenData.data));
-            const { data: session } = await supabase.auth.getSession();
-            if (session.session?.user.id) {
-              await utenteRepo.savePushToken(session.session.user.id, tokenData.data);
+            const utenteCorrente = store.getState().auth.utente;
+            if (utenteCorrente?.idUtente) {
+              await utenteRepo.savePushToken(utenteCorrente.idUtente, tokenData.data);
             }
           }
         } catch (e) {
@@ -67,14 +64,12 @@ function AppInner() {
         }
       })();
     }
-
-    return () => subscription.unsubscribe();
   }, []);
 
   return <AppNavigator />;
 }
 
-// Notifiche cross-device tramite Supabase Realtime → notifica locale sul device che riceve.
+// Notifiche cross-device tramite Socket.IO → notifica locale sul device che riceve.
 // Funziona anche in Expo Go, dove le push remote non sono disponibili.
 function NotificheRealtime() {
   const utente = useSelector((s: RootState) => s.auth.utente);
@@ -82,35 +77,30 @@ function NotificheRealtime() {
   useEffect(() => {
     if (!utente) return;
     const idUtente = utente.idUtente;
+    const socket = getSocket();
 
-    const channel = supabase
-      .channel('notifiche:globali')
-      // Nuova segnalazione creata da un ALTRO utente
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'segnalazione' },
-        (payload) => {
-          const r = payload.new as { id_segnalatore: string; nome_bene: string | null };
-          if (r.id_segnalatore === idUtente) return; // non notificare le proprie
-          mostraNotificaLocale(
-            '🚨 Nuova segnalazione',
-            `Qualcuno ha smarrito: ${r.nome_bene ?? 'un oggetto'}`,
-          );
-        }
-      )
-      // Nuovo messaggio destinato a ME
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messaggio' },
-        (payload) => {
-          const r = payload.new as { id_mittente: string; id_destinatario: string; testo: string };
-          if (r.id_destinatario !== idUtente || r.id_mittente === idUtente) return;
-          mostraNotificaLocale('💬 Nuovo messaggio', r.testo || 'Hai ricevuto un messaggio');
-        }
-      )
-      .subscribe();
+    // Nuova segnalazione creata da un ALTRO utente
+    const onSegnalazione = (r: { id_segnalatore: string; nome_bene: string | null }) => {
+      if (r.id_segnalatore === idUtente) return; // non notificare le proprie
+      mostraNotificaLocale(
+        '🚨 Nuova segnalazione',
+        `Qualcuno ha smarrito: ${r.nome_bene ?? 'un oggetto'}`,
+      );
+    };
 
-    return () => { supabase.removeChannel(channel); };
+    // Nuovo messaggio destinato a ME
+    const onMessaggio = (r: { id_mittente: string; id_destinatario: string; testo: string }) => {
+      if (r.id_destinatario !== idUtente || r.id_mittente === idUtente) return;
+      mostraNotificaLocale('💬 Nuovo messaggio', r.testo || 'Hai ricevuto un messaggio');
+    };
+
+    socket.on('segnalazione:nuova', onSegnalazione);
+    socket.on('messaggio:nuovo:global', onMessaggio);
+
+    return () => {
+      socket.off('segnalazione:nuova', onSegnalazione);
+      socket.off('messaggio:nuovo:global', onMessaggio);
+    };
   }, [utente?.idUtente]);
 
   return null;

@@ -1,10 +1,10 @@
 import type { AppDispatch } from '../store';
 import { aggiungi, caricaStart, caricaSuccess, caricaFailure, rimuovi, resetLoading } from '../store/slices/smartIdSlice';
 import { RegistraSmartIdUseCase, RegistraSmartIdInput } from '../../application/useCases/RegistraSmartIdUseCase';
-import { SupabaseSmartIdRepository } from '../repositories/supabase/SupabaseSmartIdRepository';
+import { ApiSmartIdRepository } from '../repositories/api/ApiSmartIdRepository';
 import type { SmartId } from '../../domain/entities';
 
-const repo = new SupabaseSmartIdRepository();
+const repo = new ApiSmartIdRepository();
 const useCase = new RegistraSmartIdUseCase(repo);
 
 export class SmartIdController {
