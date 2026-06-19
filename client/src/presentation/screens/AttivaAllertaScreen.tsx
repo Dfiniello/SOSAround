@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
+import { SelettoreRaggio } from '../components/common/SelettoreRaggio';
 import { useAppDispatch, useAppSelector } from '../../infrastructure/store/hooks';
 import { AllertaController } from '../../infrastructure/controllers/AllertaController';
 import { LocationService } from '../../infrastructure/services/LocationService';
@@ -28,7 +29,7 @@ export const AttivaAllertaScreen: React.FC = () => {
   const [descrizione, setDescrizione] = useState('');
   const [latManuale, setLatManuale]   = useState('');
   const [lngManuale, setLngManuale]   = useState('');
-  const [raggio, setRaggio]           = useState('10');
+  const [raggio, setRaggio]           = useState(10);
   const [usaGps, setUsaGps]           = useState(true);
   const [errore, setErrore]           = useState<string | null>(null);
 
@@ -70,7 +71,7 @@ export const AttivaAllertaScreen: React.FC = () => {
         latitudine: lat!,
         longitudine: lng!,
         descrizioneEmergenza: descrizione,
-        raggioProssimita: parseFloat(raggio) || 10,
+        raggioProssimita: raggio,
       });
 
       Alert.alert(
@@ -104,13 +105,7 @@ export const AttivaAllertaScreen: React.FC = () => {
             numberOfLines={3}
           />
 
-          <Input
-            label="Raggio notifiche (km)"
-            value={raggio}
-            onChangeText={setRaggio}
-            keyboardType="numeric"
-            placeholder="10"
-          />
+          <SelettoreRaggio value={raggio} onChange={setRaggio} />
 
           {!usaGps && (
             <>

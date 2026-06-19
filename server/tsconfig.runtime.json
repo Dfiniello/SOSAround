@@ -1,0 +1,16 @@
+{
+  "//": "Config usata da ts-node-dev e dal build. NON modificare: serve a rendere il server immune alle modifiche automatiche di tsconfig.json (es. iniezione di 'extends: expo/tsconfig.base' da estensioni VS Code).",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "dist",
+    "rootDir": "src",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"]
+}

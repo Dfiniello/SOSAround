@@ -12,6 +12,7 @@ import { AllertaController } from '../../infrastructure/controllers/AllertaContr
 import { SmartIdController } from '../../infrastructure/controllers/SmartIdController';
 import { LocationService } from '../../infrastructure/services/LocationService';
 import { TipoBene } from '../../domain/entities';
+import { SelettoreRaggio } from '../components/common/SelettoreRaggio';
 import { C } from '../theme/colors';
 
 const locationService = new LocationService();
@@ -27,6 +28,7 @@ export const NuovaSegnalazioneScreen: React.FC = () => {
 
   const [cosa, setCosa]   = useState('');
   const [dove, setDove]   = useState('');
+  const [raggio, setRaggio] = useState(10); // km — raggio di allerta
   const [errore, setErrore] = useState<string | null>(null);
 
   // Posizione del pin sulla mappa (null = non ancora piazzato)
@@ -135,11 +137,12 @@ export const NuovaSegnalazioneScreen: React.FC = () => {
         latitudine: pinCoord.lat,
         longitudine: pinCoord.lng,
         descrizioneEmergenza: dove.trim() || `Smarrito in zona ${pinCoord.lat.toFixed(4)}, ${pinCoord.lng.toFixed(4)}`,
-        raggioProssimita: 10,
+        raggioProssimita: raggio,
       });
 
       setCosa('');
       setDove('');
+      setRaggio(10);
       setPinCoord(null);
       Alert.alert(
         'Segnalazione inviata!',
@@ -178,6 +181,9 @@ export const NuovaSegnalazioneScreen: React.FC = () => {
             placeholder="Es. Parco Centrale, Ufficio..."
             placeholderTextColor={C.text3}
           />
+
+          {/* Selettore raggio di allerta (stile volume) */}
+          <SelettoreRaggio value={raggio} onChange={setRaggio} />
 
           {/* Sezione mappa */}
           <View style={styles.mapSection}>
